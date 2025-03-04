@@ -1,0 +1,10 @@
+{
+    "min_epsilon" : 0.5, 
+    "max_epsilon" : 1.0, 
+    "decay_rate"  : 0.0000001, 
+    "alpha"       : 0.5, 
+    "gamma"       : 0.9,
+    "lr"          : 0.005,
+    "mem_size"    : 300,
+    "batchsize"   : 10
+}
