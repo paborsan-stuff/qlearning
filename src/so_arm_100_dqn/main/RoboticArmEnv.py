@@ -29,12 +29,11 @@ import mediapy as media
 
 class RoboticArmEnv():
     
-    def __init__(self, model):
+    def __init__(self, model, debug_mode):
         # Cargar modelo MuJoCo
-        self.model = load_robot_description("so_arm100_mj_description")
         self.model = model
         self.data = mujoco.MjData(self.model)
-
+        self.debug_mode = True
         # Espacio de observación (posiciones y velocidades)
         self.state_dim = self.model.nq + self.model.nv
         self.action_dim = self.model.nu
@@ -69,22 +68,34 @@ class RoboticArmEnv():
         self.prev_qpos = self.data.qpos.copy()  # Para calcular mejora en recompensa
         self.reset()
 
-    def step(self, action):
-        # Convertir acción discreta en torques continuos
+    def step(self, action, debug_mode = True):
+        #
+        # TODO Is it torque? or is pwm? 
+        #
         action_values = [a * 0.5 for a in action]
         self.data.ctrl[:] = action_values
-        print(self.data.ctrl[:])
         mujoco.mj_step(self.model, self.data)
+
+  
 
         # Obtener observación
         obs = np.concatenate([self.data.qpos, self.data.qvel])
 
         # Calcular recompensa basada en distancia
+        
         distance = np.linalg.norm(self.target_position - self.data.qpos)
         prev_distance = np.linalg.norm(self.target_position - self.prev_qpos)
         improvement = prev_distance - distance
 
         reward = improvement * 10 - distance  # Premia acercarse, penaliza distancia
+
+        if self.debug_mode:
+            print("-" * 30)
+            print(f"State: {self.data.ctrl[:]}")
+            print(f"Action: {action_values}")
+            print(f"Reward: {reward:.4f}")
+            print("-" * 30)
+
         self.prev_qpos = self.data.qpos.copy()  # Guardar la posición actual
 
         done = distance < 0.05  # Termina si alcanza la meta
@@ -95,9 +106,11 @@ class RoboticArmEnv():
         self.prev_qpos = self.data.qpos.copy()  # Reiniciar posición previa
         return np.concatenate([self.data.qpos, self.data.qvel])
 
-    def train(self, episodes=5000):  # Entrenamos por más episodios
+    def train(self, episodes=2):  # Entrenamos por más episodios
         success_history = []
-
+        if self.debug_mode:
+            print("-" * 30)
+            print("Start training")
         for episode in tqdm(range(episodes)):
             state = self.reset()
             done = False
@@ -126,7 +139,7 @@ class RoboticArmEnv():
 
             success_history.append(total_reward)
 
-            if episode % 50 == 0:
+            if episode % 2 == 0:
                 print(f"Episode {episode}: Reward {total_reward:.2f}")
 
         # Guardar modelo entrenado
