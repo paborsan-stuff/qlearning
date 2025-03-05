@@ -145,15 +145,26 @@ class DQNAgent:
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=learning_rate)
         self.steps_done = 0
 
+    #
+    # TODO: This is wrong, actions are designed for flappy bird
+    # 
     def get_action(self, state):
+        #
+        # TODO: Action is to aggresive smooth the step
+        #
         if random.random() < self.epsilon:
             return [random.choice([-1, 0, 1]) for _ in range(self.action_dim)]
         else:
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+
+            #
+            # Disable bp for inference
+            #
             with torch.no_grad():
                 q_values = self.policy_net(state_tensor)
+            print("q_values", q_values)
             best_action_index = torch.argmax(q_values).item()
-
+            print("best_action_index", best_action_index)
             action_list = []
             for _ in range(self.action_dim):
                 action = (best_action_index % 3) - 1
@@ -198,4 +209,4 @@ class DQNAgent:
 
         if self.steps_done % 10000 == 0:
             print(f"Step {self.steps_done}: Updating target network...")
-            self.target_net.load_state_dict(self.policy_net.state_dict())
+            self.target_net.load_state_dict(self.policy_net.state_dict())#

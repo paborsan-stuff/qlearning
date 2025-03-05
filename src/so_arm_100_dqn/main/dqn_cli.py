@@ -16,9 +16,6 @@ def main():
     train_parser.add_argument(
         "--debug", action="store_true", help="Enable debug mode with verbose output"
     )
-    train_parser.add_argument(
-        "--log", action="store_true", help="Enable logging during training"
-    )
     
     args = parser.parse_args()
     

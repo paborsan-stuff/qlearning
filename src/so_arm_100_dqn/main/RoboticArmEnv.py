@@ -33,10 +33,16 @@ class RoboticArmEnv():
         # Cargar modelo MuJoCo
         self.model = model
         self.data = mujoco.MjData(self.model)
+        #
+        # TODO: Remove hardcoded flag
+        #
         self.debug_mode = True
         # Espacio de observación (posiciones y velocidades)
         self.state_dim = self.model.nq + self.model.nv
         self.action_dim = self.model.nu
+        print ("self.action_dim", self.action_dim)
+        print ("self.state_dim", self.state_dim)
+
         self.num_actions = 3 ** self.action_dim
 
         # Agregar renderer para capturar imágenes
@@ -44,7 +50,10 @@ class RoboticArmEnv():
         with open('qlearning.json', 'r') as file:
             data = json.load(file)
 
-        # Parámetros de DQN
+       
+        #
+        # TODO: Extract this block hyperparam must be part of gs
+        #
         max_epsilon = data['max_epsilon']
         min_epsilon = data['min_epsilon']
         decay_rate = data['decay_rate']  # Decaimiento más lento para explorar más
@@ -66,23 +75,25 @@ class RoboticArmEnv():
 
         self.target_position = np.array([0, -1.57079, 1.57079, 1.57079, -1.57079, 0])  # Meta deseada 0.      -1.57079  1.57079  1.57079 -1.57079  0. 
         self.prev_qpos = self.data.qpos.copy()  # Para calcular mejora en recompensa
+        print("self.prev_qpos", self.prev_qpos)
         self.reset()
 
     def step(self, action, debug_mode = True):
         #
-        # TODO Is it torque? or is pwm? 
+        # TODO Is it torque? or is pwm? Action already was computed?
         #
         action_values = [a * 0.5 for a in action]
         self.data.ctrl[:] = action_values
         mujoco.mj_step(self.model, self.data)
-
-  
 
         # Obtener observación
         obs = np.concatenate([self.data.qpos, self.data.qvel])
 
         # Calcular recompensa basada en distancia
         
+        #
+        # TODO Reward function
+        #
         distance = np.linalg.norm(self.target_position - self.data.qpos)
         prev_distance = np.linalg.norm(self.target_position - self.prev_qpos)
         improvement = prev_distance - distance
@@ -118,7 +129,11 @@ class RoboticArmEnv():
             x = 0
 
             while not done:
+                #
+                # TODO Modify get_action
+                #
                 action = self.agent.get_action(state)
+
                 next_state, reward, done = self.step(action)
 
                 # Guardar experiencia en memoria
