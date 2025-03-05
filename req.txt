@@ -1,0 +1,6 @@
+numpy
+mujoco
+torch
+matplotlib
+tqdm
+mediapy
