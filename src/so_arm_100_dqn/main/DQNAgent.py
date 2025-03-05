@@ -111,7 +111,8 @@ import random
 from collections import deque
 
 class SimpleDQN(nn.Module):
-    def __init__(self, state_dim, num_actions, hidden_dim=64):
+
+    def __init__(self, state_dim, num_actions, hidden_dim=32):
         super(SimpleDQN, self).__init__()
         self.fc1 = nn.Linear(state_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
