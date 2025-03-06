@@ -33,11 +33,17 @@ class RoboticArmEnv():
         # Cargar modelo MuJoCo
         self.model = model
         self.data = mujoco.MjData(self.model)
+        self.body_name = "Moving_Jaw"
         self.debug_mode = True
-        # Espacio de observación (posiciones y velocidades)
-        self.state_dim = self.model.nq + self.model.nv
+        # Espacio de observación (posiciones)
+        self.state_dim = self.model.nq
         self.action_dim = self.model.nu
-        self.num_actions = 3 ** self.action_dim
+
+        # Obtener el ID del body "Moving_Jaw" (el que contiene el joint "Jaw")
+        self.body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.body_name)
+
+        # X posibles estados (posiciones) de un servo, definido por criterio propio
+        self.num_actions = self.action_dim 
 
         # Agregar renderer para capturar imágenes
         self.renderer = mujoco.Renderer(self.model)
@@ -64,47 +70,50 @@ class RoboticArmEnv():
                               memory_size=memory_size,
                               batch_size=batch_size)
 
-        self.target_position = np.array([0, -1.57079, 1.57079, 1.57079, -1.57079, 0])  # Meta deseada 0.      -1.57079  1.57079  1.57079 -1.57079  0. 
-        self.prev_qpos = self.data.qpos.copy()  # Para calcular mejora en recompensa
+        # Posicion global (x,y,z) del 'Jaw' en Keyframe [0, -1.57079, 1.57079, 1.57079, -1.57079, 0]
+        self.target_position = np.array([-0.0202, -0.23870058, 0.15226918]) 
+        self.prev_jaw_position = np.array([0, 0, 0])  # Para calcular mejora en recompensa
         self.reset()
+
 
     def step(self, action, debug_mode = True):
         #
-        # TODO Is it torque? or is pwm? 
+        # TODO Is it torque? or is pwm? It is angle
         #
-        action_values = [a * 0.5 for a in action]
+        action_values = [(a - 1) * 0.1 for a in action]
         self.data.ctrl[:] = action_values
         mujoco.mj_step(self.model, self.data)
 
-  
-
-        # Obtener observación
-        obs = np.concatenate([self.data.qpos, self.data.qvel])
-
-        # Calcular recompensa basada en distancia
+        # Obtener la posición absoluta del "Jaw" en coordenadas globales
+        self.jaw_position = self.data.xpos[self.body_id]
         
-        distance = np.linalg.norm(self.target_position - self.data.qpos)
-        prev_distance = np.linalg.norm(self.target_position - self.prev_qpos)
+        # Obtener observación
+        obs = np.concatenate([self.data.qpos])
+
+        # Calcular recompensa basada en distancia global (x,y,z) 
+        distance = np.linalg.norm(self.target_position - self.jaw_position)
+        prev_distance = np.linalg.norm(self.target_position - self.prev_jaw_position)
         improvement = prev_distance - distance
 
         reward = improvement * 10 - distance  # Premia acercarse, penaliza distancia
 
         if self.debug_mode:
             print("-" * 30)
+            print(f"Target Position: {self.target_position}")
+            print(f"Jaw Position: {self.jaw_position}")
             print(f"State: {self.data.ctrl[:]}")
             print(f"Action: {action_values}")
             print(f"Reward: {reward:.4f}")
             print("-" * 30)
 
         self.prev_qpos = self.data.qpos.copy()  # Guardar la posición actual
-
-        done = distance < 0.05  # Termina si alcanza la meta
+        done = distance <= 0.1  # Termina si alcanza la meta
         return obs, reward, done
 
     def reset(self):
         mujoco.mj_resetData(self.model, self.data)
         self.prev_qpos = self.data.qpos.copy()  # Reiniciar posición previa
-        return np.concatenate([self.data.qpos, self.data.qvel])
+        return np.concatenate([self.data.qpos])
 
     def train(self, episodes=2):  # Entrenamos por más episodios
         success_history = []
@@ -121,6 +130,7 @@ class RoboticArmEnv():
                 action = self.agent.get_action(state)
                 next_state, reward, done = self.step(action)
 
+                print(state)
                 # Guardar experiencia en memoria
                 self.agent.store_transition(state, action, reward, next_state, done)
 
