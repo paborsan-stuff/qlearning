@@ -174,24 +174,43 @@ class DQNAgent:
         states = torch.FloatTensor(np.array([m[0] for m in minibatch])).unsqueeze(1).to(self.device)
         actions = torch.LongTensor(np.array([m[1] for m in minibatch])).unsqueeze(1).to(self.device)
         actions = torch.clamp(actions, min=0, max=self.num_actions - 1)
-        if actions.dim() == 1:
-            actions = actions.unsqueeze(1)
-
         rewards = torch.FloatTensor(np.array([m[2] for m in minibatch])).unsqueeze(1).to(self.device)
         next_states = torch.FloatTensor(np.array([m[3] for m in minibatch])).to(self.device)
+        dones = torch.FloatTensor(np.array([m[4] for m in minibatch])).unsqueeze(1).to(self.device)
 
+
+        if actions.dim() == 3:
+            actions = actions.unsqueeze(1)
+
+        # Obtener valores de Q de la red de política
+        q_values = self.policy_net(states)  # [batch_size, num_actions]
+
+        # Seleccionar los valores Q correspondientes a las acciones tomadas
+        action_indices = torch.argmax(q_values, dim=1, keepdim=True)  # [batch_size, 1]
+        current_q = q_values.gather(1, action_indices)
+
+        # Calcular Q-target
         with torch.no_grad():
             next_q = self.target_net(next_states).max(1)[0].unsqueeze(1)
+        target_q = rewards + self.gamma * next_q * (1 - dones)
 
-        print(f"actions shape: {actions.shape}, values: {actions}")
-        print(f"policy_net output shape: {self.policy_net(states).shape}")
-
-        target_q = rewards + self.gamma * next_q
-        loss = nn.SmoothL1Loss()(self.policy_net(states).gather(1, actions), target_q)
-
+        # Calcular pérdida y optimizar
+        loss = nn.SmoothL1Loss()(current_q, target_q.detach())
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        # with torch.no_grad():
+        #     next_q = self.target_net(next_states).max(1)[0].unsqueeze(1)
+
+        # target_q = rewards + self.gamma * next_q
+        # actions = actions.squeeze(1)  # Convierte [batch_size, 1, action_dim] → [batch_size, action_dim]
+        # actions = actions.unsqueeze(-1)  # Convierte [batch_size, action_dim] → [batch_size, action_dim, 1]
+
+        # loss = nn.SmoothL1Loss()(self.policy_net(states).gather(1, actions), target_q)
+
+        # self.optimizer.zero_grad()
+        # loss.backward()
+        # self.optimizer.step()
 
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
