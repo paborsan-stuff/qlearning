@@ -1,3 +1,5 @@
 .vscode/
 .idea/
+*_log
+**/model_log
 __pycache__/

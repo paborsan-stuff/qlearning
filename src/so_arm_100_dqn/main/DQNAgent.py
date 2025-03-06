@@ -112,7 +112,7 @@ from collections import deque
 
 class SimpleDQN(nn.Module):
 
-    def __init__(self, state_dim, num_actions, hidden_dim=32):
+    def __init__(self, state_dim, num_actions, hidden_dim=120):
         super(SimpleDQN, self).__init__()
         self.fc1 = nn.Linear(state_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
@@ -171,8 +171,8 @@ class DQNAgent:
             return
 
         minibatch = random.sample(self.memory, self.batch_size)
-        states = torch.FloatTensor(np.array([m[0] for m in minibatch])).to(self.device)
-        actions = torch.LongTensor(np.array([m[1] for m in minibatch])).to(self.device)
+        states = torch.FloatTensor(np.array([m[0] for m in minibatch])).unsqueeze(1).to(self.device)
+        actions = torch.LongTensor(np.array([m[1] for m in minibatch])).unsqueeze(1).to(self.device)
         actions = torch.clamp(actions, min=0, max=self.num_actions - 1)
         if actions.dim() == 1:
             actions = actions.unsqueeze(1)
@@ -182,6 +182,9 @@ class DQNAgent:
 
         with torch.no_grad():
             next_q = self.target_net(next_states).max(1)[0].unsqueeze(1)
+
+        print(f"actions shape: {actions.shape}, values: {actions}")
+        print(f"policy_net output shape: {self.policy_net(states).shape}")
 
         target_q = rewards + self.gamma * next_q
         loss = nn.SmoothL1Loss()(self.policy_net(states).gather(1, actions), target_q)
