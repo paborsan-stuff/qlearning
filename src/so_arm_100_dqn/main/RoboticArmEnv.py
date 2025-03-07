@@ -1,7 +1,7 @@
 """
 Educational Use License
 
-Copyright (c) 2025 Your Name
+Copyright (c) 2025 UP Student IA Research
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to use,
@@ -23,22 +23,22 @@ from tqdm import tqdm
 from DQNAgent import DQNAgent
 from pathlib import Path
 import mediapy as media
-
-#so_arm = load_robot_description("so_arm100_mj_description")
-#so_arm.actuator
+from RobotAction import RobotAction 
 
 class RoboticArmEnv():
     
-    def __init__(self, model, debug_mode):
+    def __init__(self, model, debug_mode, steps, max_ep):
         # Cargar modelo MuJoCo
+
         self.model = model
         self.data = mujoco.MjData(self.model)
         self.body_name = "Moving_Jaw"
-        self.debug_mode = True
+        self.debug_mode = debug_mode
         # Espacio de observación (posiciones)
         self.state_dim = self.model.nq
         self.action_dim = self.model.nu
-
+        self.steps = steps
+        self.max_ep = max_ep
         # Obtener el ID del body "Moving_Jaw" (el que contiene el joint "Jaw")
         self.body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.body_name)
 
@@ -58,6 +58,7 @@ class RoboticArmEnv():
         learning_rate = data['lr']
         memory_size = data['mem_size']  # Memoria más grande para mejorar el aprendizaje
         batch_size = data['batchsize']
+        robot_trainer = RobotAction(model)
 
         self.agent = DQNAgent(state_dim=self.state_dim,
                               num_actions=self.num_actions,
@@ -68,20 +69,17 @@ class RoboticArmEnv():
                               epsilon_decay=decay_rate,
                               learning_rate=learning_rate,
                               memory_size=memory_size,
-                              batch_size=batch_size)
+                              batch_size=batch_size,
+                              dq_trainer = robot_trainer)
 
         # Posicion global (x,y,z) del 'Jaw' en Keyframe [0, -1.57079, 1.57079, 1.57079, -1.57079, 0]
         self.target_position = np.array([-0.0202, -0.23870058, 0.15226918]) 
         self.prev_jaw_position = np.array([0, 0, 0])  # Para calcular mejora en recompensa
         self.reset()
-
-
     def step(self, action, debug_mode = True):
-        #
-        # TODO Is it torque? or is pwm? It is angle
-        #
-        action_values = [(a - 1) * 0.1 for a in action]
-        self.data.ctrl[:] = action_values
+
+
+        self.data.ctrl[:] = action
         mujoco.mj_step(self.model, self.data)
 
         # Obtener la posición absoluta del "Jaw" en coordenadas globales
@@ -91,23 +89,30 @@ class RoboticArmEnv():
         obs = np.concatenate([self.data.qpos])
 
         # Calcular recompensa basada en distancia global (x,y,z) 
-        distance = np.linalg.norm(self.target_position - self.jaw_position)
+        current_distance = np.linalg.norm(self.target_position - self.jaw_position)
         prev_distance = np.linalg.norm(self.target_position - self.prev_jaw_position)
-        improvement = prev_distance - distance
 
-        reward = improvement * 10 - distance  # Premia acercarse, penaliza distancia
+        #          condition                        reward       reward
+        # prev_distance > current_distance            +            1
+        # prev_distance < current_distance            -           -1
+        #
+        # max(reward)
+        #
+        # Max = (10pd - 11cd)
+        #
+        reward = (prev_distance - current_distance) * 10
 
         if self.debug_mode:
             print("-" * 30)
             print(f"Target Position: {self.target_position}")
             print(f"Jaw Position: {self.jaw_position}")
             print(f"State: {self.data.ctrl[:]}")
-            print(f"Action: {action_values}")
+            print(f"Action: {action}")
             print(f"Reward: {reward:.4f}")
             print("-" * 30)
 
         self.prev_qpos = self.data.qpos.copy()  # Guardar la posición actual
-        done = distance <= 0.1  # Termina si alcanza la meta
+        done = current_distance <= 0.1  # Termina si alcanza la meta
         return obs, reward, done
 
     def reset(self):
@@ -120,12 +125,12 @@ class RoboticArmEnv():
         if self.debug_mode:
             print("-" * 30)
             print("Start training")
-        for episode in tqdm(range(episodes)):
+        for episode in tqdm(range(self.max_ep)):
             state = self.reset()
             done = False
             total_reward = 0
-            x = 0
-
+            step = 0
+               
             while not done:
                 action = self.agent.get_action(state)
                 next_state, reward, done = self.step(action)
@@ -145,8 +150,9 @@ class RoboticArmEnv():
                 #    print(f"Rendering frame at episode {episode}...")
                 #    self.renderer.update_scene(self.data)
                 #    media.show_image(self.renderer.render())
-                x += 1
-
+                step += 1
+                if step > self.steps:
+                    break
             success_history.append(total_reward)
 
             if episode % 2 == 0:
