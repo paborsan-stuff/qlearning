@@ -1,7 +1,7 @@
 import argparse
 from RoboticArmEnv import RoboticArmEnv
-
 from robot_descriptions.loaders.mujoco import load_robot_description
+
 # Cargar configuración de Q-learning
 
 def main():
@@ -19,12 +19,22 @@ def main():
     train_parser.add_argument(
         "--log", action="store_true", help="Enable logging during training"
     )
+    train_parser.add_argument(
+        "--memory_size", type=int, default=10000, help="Set the memory size for the training"
+    )
+    train_parser.add_argument(
+        "--batch_size", type=int, default=64, help="Set the batch size for the training"
+    )
+    train_parser.add_argument(
+        "--epsilon", type=float, default=1.0, help="Set the epsilon for the training"
+    )
     
     args = parser.parse_args()
     
     if args.command == "train":
         mdl = load_robot_description("so_arm100_mj_description")
-        env = RoboticArmEnv(mdl, debug_mode=args.debug)
+        env = RoboticArmEnv(mdl, debug_mode=args.debug,memory_size=args.memory_size, batch_size=args.batch_size, epsilon=args.epsilon)
+        # Passing the memory_size and batch_size to the train method
         env.train(episodes=1)
     else:
         parser.print_help()

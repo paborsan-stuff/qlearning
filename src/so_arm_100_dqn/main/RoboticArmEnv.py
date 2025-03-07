@@ -29,7 +29,7 @@ import mediapy as media
 
 class RoboticArmEnv():
     
-    def __init__(self, model, debug_mode):
+    def __init__(self, model,debug_mode,memory_size, batch_size, epsilon):
         # Cargar modelo MuJoCo
         self.model = model
         self.data = mujoco.MjData(self.model)
@@ -51,13 +51,13 @@ class RoboticArmEnv():
             data = json.load(file)
 
         # Parámetros de DQN
-        max_epsilon = data['max_epsilon']
+        max_epsilon = epsilon
         min_epsilon = data['min_epsilon']
         decay_rate = data['decay_rate']  # Decaimiento más lento para explorar más
         gamma = data['gamma']
         learning_rate = data['lr']
-        memory_size = data['mem_size']  # Memoria más grande para mejorar el aprendizaje
-        batch_size = data['batchsize']
+        memory_size = memory_size  # Memoria más grande para mejorar el aprendizaje
+        batch_size = batch_size
 
         self.agent = DQNAgent(state_dim=self.state_dim,
                               num_actions=self.num_actions,

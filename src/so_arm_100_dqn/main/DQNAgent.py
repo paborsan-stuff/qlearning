@@ -125,8 +125,8 @@ class SimpleDQN(nn.Module):
 
 class DQNAgent:
     def __init__(self, state_dim, num_actions, action_dim, gamma=0.99, epsilon=1.0, 
-                 epsilon_min=0.01, epsilon_decay=0.999, learning_rate=1e-3, 
-                 memory_size=5000, batch_size=32):
+                 epsilon_min=0.01, epsilon_decay=0.995, learning_rate=5e-4, 
+                 memory_size=10000, batch_size=64):
         self.state_dim = state_dim
         self.num_actions = num_actions
         self.action_dim = action_dim
