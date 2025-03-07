@@ -15,6 +15,7 @@ This license is intended for educational purposes only.
 
 from robot_descriptions.loaders.mujoco import load_robot_description
 import numpy as np
+
 import mujoco
 import json
 import torch
@@ -52,7 +53,7 @@ class RoboticArmEnv():
 
         # Parámetros de DQN
         max_epsilon = epsilon
-        
+
         min_epsilon = data['min_epsilon']
         decay_rate = data['decay_rate']  # Decaimiento más lento para explorar más
         gamma = data['gamma']
