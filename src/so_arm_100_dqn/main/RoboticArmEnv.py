@@ -52,6 +52,7 @@ class RoboticArmEnv():
 
         # Parámetros de DQN
         max_epsilon = epsilon
+        
         min_epsilon = data['min_epsilon']
         decay_rate = data['decay_rate']  # Decaimiento más lento para explorar más
         gamma = data['gamma']
