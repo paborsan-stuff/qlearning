@@ -43,10 +43,17 @@ def main():
     )
     args = parser.parse_args()
     
+    # Create parser for the "inference" command
+    inference_parser = subparsers.add_parser("inference", help="Create an inference with the model")
+
     if args.command == "train":
         mdl = load_robot_description("so_arm100_mj_description")
         env = RoboticArmEnv(mdl, debug_mode=args.debug, steps=args.steps, max_ep=args.episodes)
         env.train(episodes=1)
+    elif args.command == "inference":
+        mdl = load_robot_description("so_arm100_mj_description")
+        env = RoboticArmEnv(mdl, debug_mode=args.debug, steps=args.steps, max_ep=args.episodes)
+        env.inference(episodes=1)
     else:
         parser.print_help()
 

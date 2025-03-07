@@ -23,6 +23,7 @@ from tqdm import tqdm
 from DQNAgent import DQNAgent
 from pathlib import Path
 import mediapy as media
+import enum
 from RobotAction import RobotAction 
 
 class RoboticArmEnv():
@@ -171,3 +172,80 @@ class RoboticArmEnv():
         plt.ylabel("Total Reward")
         plt.title("Training Progress")
         plt.show()
+
+    def unit_smooth(self, normalised_time: float) -> float:
+        return 1 - np.cos(normalised_time * 2 * np.pi)
+
+    def azimuth(self, 
+        time: float, duration: float, total_rotation: float, offset: float
+    ) -> float:
+        return offset + self.unit_smooth(time / duration) * total_rotation
+        
+    def quartic(self, t: float) -> float:
+        return 0 if abs(t) > 1 else (1 - t**2) ** 2
+    
+    def blend_coef(self, t: float, duration: float, std: float) -> float:
+        normalised_time = 2 * t / duration - 1
+        return self.quartic(normalised_time / std)
+
+    def inference(self):
+        # Cargar el modelo guardado
+        checkpoint = torch.load("Checkpoint/dqn_robotic_arm.pth", map_location=torch.device("cpu"))
+        self.agent.policy_net.load_state_dict(checkpoint['policy_net_state_dict'])
+        self.agent.target_net.load_state_dict(checkpoint['target_net_state_dict'])
+        self.agent.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.agent.epsilon = 0
+        self.fps = 60
+        self.duration = 10.0
+        self.total_rot = 60
+        self.blend_std = .8
+
+        # Creando visuales y colisiones.
+        vis = mujoco.MjvOption()
+        vis.geomgroup[2] = True
+        vis.geomgroup[3] = False
+        coll = mujoco.MjvOption()
+        coll.geomgroup[2] = False
+        coll.geomgroup[3] = True
+        coll.flags[mujoco.mjtVisFlag.mjVIS_CONVEXHULL] = True
+
+        # Enfoque de cámara.
+        camera = mujoco.MjvCamera()
+        mujoco.mjv_defaultFreeCamera(self.model, camera)
+        camera.distance = 1
+        offset = self.model.vis.global_.azimuth
+
+        class Resolution(enum.Enum): #perdón Tonix
+            SD = (480, 640)
+            HD = (720, 1280)
+            UHD = (2160, 3840)
+
+        res = Resolution.SD
+        h, w = res.value
+
+        renderer = mujoco.Renderer(self.model, height=h, width=w)
+
+        mujoco.mj_resetData(self.model, self.data)  # Resetear el entorno
+
+        upwards = 0
+        frames = []
+        for step in range(1000):  # Simular 1000 pasos
+            state = np.concatenate([self.data.qpos])  # Obtener el estado
+            action = self.agent.get_action(state)  # Obtener acción del modelo cargado
+
+            # Convertir la acción discreta en torques
+            self.data.ctrl[:] = action  # Aplicar acción al simulador
+
+            mujoco.mj_step(self.model, self.data)  # Avanzar la simulación
+            if len(len.frames) < self.data.time * self.fps:
+                camera.azimuth = self.azimuth(self.data.time, self.duration, self.total_rot, offset)
+                renderer.update_scene(self.data, camera, scene_option=vis)
+                vispix = renderer.render().copy().astype(np.float32)
+                renderer.update_scene(self.data, camera, scene_option=coll)
+                collpix = renderer.render().copy().astype(np.float32)
+                b = self.blend_coef(self.data.time, self.duration, self.blend_std)
+                frame = (1 - b) * vispix + b * collpix
+                frame = frame.astype(np.uint8)
+                frames.append(frame)
+                upwards =+ 1
+        media.show_video(frames, fps=self.fps, loop=False)
