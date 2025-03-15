@@ -19,8 +19,48 @@ import mujoco
 class RobotAction:
     def __init__(self, mdl):
         self.mdl = mdl
-
+        self.set_joint_step()
     def generate_action(self):
+        """
+        Generate a random action within the joint limits.
+        This action can be interpreted as the desired change in joint angles.
+        """
+        actions = []
+        joint_limits = []
+        for i in range(self.mdl.njnt):
+            joint_name = mujoco.mj_id2name(self.mdl, mujoco.mjtObj.mjOBJ_JOINT, i)
+            lower, upper = self.mdl.jnt_range[i]
+            print(f"Joint: {joint_name}, Range: {lower} to {upper}")
+            joint_limits.append((lower, upper))
+
+            # Generate a random value within the joint's limits
+            random_val = np.random.uniform(lower, upper)
+            actions.append(random_val)
+
+        print("Joint limits:", joint_limits)
+        return np.array(actions)
+
+    def set_joint_step(self):
+        """
+        Generate a random action within the joint limits.
+        This action can be interpreted as the desired change in joint angles.
+        """
+        actions = []
+        joint_step = []
+        resolution = 1000
+        for i in range(self.mdl.njnt):
+            joint_name = mujoco.mj_id2name(self.mdl, mujoco.mjtObj.mjOBJ_JOINT, i)
+            lower, upper = self.mdl.jnt_range[i]
+            print(f"Joint: {joint_name}, Range: {lower} to {upper}")
+            joint_step.append((upper - lower) / 1000)
+            # Generate a random value within the joint's limits
+            random_val = np.random.uniform(lower, upper)
+            actions.append(random_val)
+
+        print("Joint granularity:", joint_step)
+        return np.array(actions)
+    
+    def check_joint_is_in_range(self):
         """
         Generate a random action within the joint limits.
         This action can be interpreted as the desired change in joint angles.

@@ -37,7 +37,10 @@ class RoboticArmEnv():
         self.debug_mode = debug_mode
         # Espacio de observación (posiciones)
         self.state_dim = self.model.nq
-        self.action_dim = self.model.nu
+
+        print ("self.model.nu", self.model.nu)
+        self.action_dim = self.model.nu * 2
+
         self.steps = steps
         self.max_ep = max_ep
         # Obtener el ID del body "Moving_Jaw" (el que contiene el joint "Jaw")
@@ -77,6 +80,7 @@ class RoboticArmEnv():
         self.target_position = np.array([-0.0202, -0.23870058, 0.15226918]) 
         self.prev_jaw_position = np.array([0, 0, 0])  # Para calcular mejora en recompensa
         self.reset()
+        
     def step(self, action, debug_mode = True):
 
 

@@ -20,7 +20,8 @@ import numpy as np
 import random
 from collections import deque
 
-
+NEGATIVE_DIR = -1
+POSTIVE_DIR  = 1
 class SimpleDQN(nn.Module):
 
     def __init__(self, state_dim, num_actions, hidden_dim=120):
@@ -66,17 +67,22 @@ class DQNAgent:
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
             with torch.no_grad():
                 q_values = self.policy_net(state_tensor)
+            #
+            #
+            # Inference is analogous to lookup a Q table
+            #
+            #
             best_action_index = torch.argmax(q_values).item()
-            
-            #           joint 0         |           joint 1          |           joint 2          |
-            #      +             -      |      +             -       |      +             -       |
-            #      Q0     |      Q1     |      Q2     |      Q3      |      Q4     |      Q5      |
-            #      a             b              c             d             f              e      |
+ 
+
+            #           joint 0         |           joint 1          |           joint 2          | ... |           joint n          |
+            #      +             -      |      +             -       |      +             -       |     |      +             -       |
+            #      Q0     |      Q1     |      Q2     |      Q3      |      Q4     |      Q5      |     |  Q 2n     |   Q 2n + 1     |
             # 
             # best_action_index = argmax (a,b,c,d,e)
             #
             #  best_action_index = b
-            # e.g b = Q0
+            #  e.g b = Q0
             #
             # action_list = [1,0,0,0,0,0]
             #
@@ -92,7 +98,25 @@ class DQNAgent:
             # Action [(Q0 Q1), (Q2 Q3), (Q4 Q5)]
             # 
             #  
-            action_list = [0, 0, 0, 0, 0, 0]
+            action_list = np.array([0, 0, 0, 0, 0, 0])
+            print("best_action_index", best_action_index)
+            if best_action_index % 2 == 0:
+                #
+                # Odd index refers to q values associate to negative joint movement
+                # 
+                joint_dir = NEGATIVE_DIR
+            else:
+                joint_dir = POSTIVE_DIR
+            
+            #
+            # TODO: Get joint step granularity
+            #
+            joint_index = best_action_index // 2
+            print("joint_index", joint_index)
+            print("action_list", action_list)
+
+            action_list[joint_index] = joint_dir / 10000
+            print ("state", state)
             return action_list
 
     def store_transition(self, state, action, reward, next_state, done):
